@@ -17,9 +17,9 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Scanner;
 
-public class EdgeImporter {
+class EdgeImporter {
 
-    Map<String, String> propDic = new HashMap<String, String>();
+    private Map<String, String> propDic = new HashMap<String, String>();
     PrintWriter logWriter;  // log all created new nodes when importing edges
     BatchInserter inserter;
 

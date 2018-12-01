@@ -13,20 +13,20 @@ import java.io.PrintWriter;
 import java.util.HashMap;
 import java.util.Map;
 
-public class ItemImporter {
+class ItemImporter {
 
-    Label labelItem; // group nodes of items
-    Label labelProp; // group nodes of properties
+    private Label labelItem; // group nodes of items
+    private Label labelProp; // group nodes of properties
 
     // Write all properties to a file.
     // We don't use them during importing actually.
     // But it can be convenient and efficient to use this dump,
     // rather than original json file if you want to add additional information to edges.
-    PrintWriter propertyWriter;
+    private PrintWriter propertyWriter;
 
-    BatchInserter inserter;
+    private BatchInserter inserter;
 
-    public ItemImporter(String pathNeo4jDatabase, String propDumpPath) throws IOException {
+    ItemImporter(String pathNeo4jDatabase, String propDumpPath) throws IOException {
         labelItem = DynamicLabel.label("Item");
         labelProp = DynamicLabel.label("Property");
         propertyWriter = new PrintWriter(propDumpPath);
@@ -34,27 +34,33 @@ public class ItemImporter {
         initializeInserter(pathNeo4jDatabase);
     }
 
-    public void initializeInserter(String pathNeo4jDatabase) throws IOException {
+    void initializeInserter(String pathNeo4jDatabase) throws IOException {
         inserter = BatchInserters.inserter(new File(pathNeo4jDatabase));
         // inserter.createDeferredSchemaIndex(labelItem).on("wikidataId").create();
     }
 
-    public void importItem(String itemDocStr, Boolean isItem) {
+    void importItem(String itemDocStr, Boolean isItem) {
         // Extract key information from json string
         JSONObject obj = new JSONObject(itemDocStr);
         String wikidataId = obj.getString("id");
         String datatype = getDatatype(obj);    // only exists in property
-        String label = getEnLabel(obj);
-        String description = getEnDescription(obj);
-        String aliasStr = getEnAliases(obj);
+        String enLabel = getEnLabel(obj);
+        String ruLabel = getRuLabel(obj);
+        String enDescription = getEnDescription(obj);
+        String ruDescription = getRuDescription(obj);
+        String enAliases = getEnAliases(obj);
+        String ruAliases = getRuAliases(obj);
 
         // Construct property map of current node
         Map<String, Object> properties = new HashMap<String, Object>();
         properties.put("wikidataId", wikidataId);
         if (!datatype.equals("")) properties.put("datatype", datatype);
-        if (!label.equals("")) properties.put("label", label);
-        if (!description.equals("")) properties.put("description", description);
-        if (!aliasStr.equals("")) properties.put("aliases", aliasStr);
+        if (!enLabel.equals("")) properties.put("enLabel", enLabel);
+        if (!ruLabel.equals("")) properties.put("ruLabel", ruLabel);
+        if (!enDescription.equals("")) properties.put("enDescription", enDescription);
+        if (!ruDescription.equals("")) properties.put("ruDescription", ruDescription);
+        if (!enAliases.equals("")) properties.put("enAliases", enAliases);
+        if (!ruAliases.equals("")) properties.put("ruAliases", ruAliases);
 
         // Generate id of current node and insert it
         long nodeId = Long.parseLong(wikidataId.substring(1));
@@ -72,20 +78,23 @@ public class ItemImporter {
         if (!isItem) {
             JSONObject resObj = new JSONObject();
             resObj.put("wikidataId", wikidataId);
-            resObj.put("label", label);
+            resObj.put("enLabel", enLabel);
+            resObj.put("ruLabel", ruLabel);
             resObj.put("datatype", datatype);
-            resObj.put("description", description);
-            resObj.put("aliases", aliasStr);
+            resObj.put("enDescription", enDescription);
+            resObj.put("ruDescription", ruDescription);
+            resObj.put("enAliases", enAliases);
+            resObj.put("ruAliases", ruAliases);
 
             propertyWriter.write(resObj.toString() + "\n");
         }
     }
 
-    public void shutDownNeo4j(){
+    void shutDownNeo4j(){
         inserter.shutdown();
     }
 
-    public void close() {
+    void close() {
         inserter.shutdown();
         propertyWriter.close();
     }
@@ -101,10 +110,33 @@ public class ItemImporter {
         return obj.getJSONObject("labels").getJSONObject("en").getString("value");
     }
 
+    private String getRuLabel(JSONObject obj) {
+        if (!obj.has("labels")) return "";
+        if (!obj.getJSONObject("labels").has("ru")) return "";
+        return obj.getJSONObject("labels").getJSONObject("ru").getString("value");
+    }
+
     private String getEnDescription(JSONObject obj) {
         if (!obj.has("descriptions")) return "";
         if (!obj.getJSONObject("descriptions").has("en")) return "";
         return obj.getJSONObject("descriptions").getJSONObject("en").getString("value");
+    }
+
+    private String getRuDescription(JSONObject obj) {
+        if (!obj.has("descriptions")) return "";
+        if (!obj.getJSONObject("descriptions").has("ru")) return "";
+        return obj.getJSONObject("descriptions").getJSONObject("ru").getString("value");
+    }
+
+    private String getAliases(JSONArray aliases) {
+        StringBuilder aliasStr = new StringBuilder();
+        for (Object aliasObj : aliases) {
+            String tempAlias = ((JSONObject) aliasObj).getString("value");
+        }
+        final String substring;
+        substring = aliasStr.substring(0, aliases.length() - 1);
+        String substring1 = substring;
+        return substring1;
     }
 
     private String getEnAliases(JSONObject obj) {
@@ -112,12 +144,15 @@ public class ItemImporter {
         if (!obj.getJSONObject("aliases").has("en")) return "";
 
         JSONArray aliases = obj.getJSONObject("aliases").getJSONArray("en");
-        String aliasStr = "";
-        for (Object aliasObj : aliases) {
-            String tempAlias = ((JSONObject) aliasObj).getString("value");
-            aliasStr += tempAlias + "\n";
-        }
-        return aliasStr.substring(0, aliases.length()-1);
+        return getAliases(aliases);
+    }
+
+    private String getRuAliases(JSONObject obj) {
+        if (!obj.has("aliases")) return "";
+        if (!obj.getJSONObject("aliases").has("ru")) return "";
+
+        JSONArray aliases = obj.getJSONObject("aliases").getJSONArray("ru");
+        return getAliases(aliases);
     }
 
 }
